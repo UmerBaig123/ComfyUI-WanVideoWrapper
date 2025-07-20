@@ -2040,10 +2040,18 @@ class WanVideoSampler:
                 #batched
                 else:
                     cache_state_uncond = None
+                    # Fix: Check if clip_fea is None before calling .repeat()
+                    # If None, create a neutral zero tensor to prevent crash when no clip_context/clip_embeds are provided
+                    if clip_fea is not None:
+                        batched_clip_fea = clip_fea.repeat(2,1,1)
+                    else:
+                        # Create minimal neutral tensor with shape [2, 1, 1] for batched CFG (cond + uncond)
+                        batched_clip_fea = torch.zeros(2, 1, 1, dtype=dtype, device=device)
+                    
                     [noise_pred_cond, noise_pred_uncond], cache_state_cond = transformer(
                         [z] + [z], context=positive_embeds + negative_embeds, 
                         y=[image_cond_input] + [image_cond_input] if image_cond_input is not None else None,
-                        clip_fea=clip_fea.repeat(2,1,1), is_uncond=False, current_step_percentage=current_step_percentage,
+                        clip_fea=batched_clip_fea, is_uncond=False, current_step_percentage=current_step_percentage,
                         pred_id=cache_state[0] if cache_state else None,
                         **base_params
                     )
